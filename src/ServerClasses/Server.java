@@ -23,7 +23,6 @@ public class Server {
 	
 	public void kill(){
 		running=false;
-		System.out.println("Kil kill kill");
 	}
 	
 	public void addThread(Thread thread){
