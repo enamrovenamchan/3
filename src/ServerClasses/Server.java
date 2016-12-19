@@ -14,7 +14,7 @@ public class Server {
 	
 	boolean running = true;
 	int portNumber = 85858;
-	ArrayList<Thready> openThreadys = new ArrayList<Thready>();
+	ArrayList<Thready> openThreads = new ArrayList<Thready>();
 	ArrayList<Message> messages = new ArrayList<Message>();
 	
 
@@ -85,7 +85,7 @@ public class Server {
 	
 					}
 					if(firstInput.startsWith("X ")){
-	
+						kill();
 					}
 					if(firstInput.startsWith("N ")){
 	
@@ -138,18 +138,26 @@ public class Server {
 				}
 			}
 		}
+		
+		public void kill(){
+			this.running=false;
+		}
 	}
 	
-	public void kill(){
+	public synchronized void kill(){
 		running=false;
+		for(Thready thread : openThreads){
+			thread.kill();
+			thread.interrupt();
+		}
 	}
 
 	public void addMessage(Message message){
 		messages.add(message);
 	}
 	
-	public void addThready(Thready Thready){
-		openThreadys.add(Thready);
+	public void addThready(Thready thready){
+		openThreads.add(thready);
 	}
 
 }
