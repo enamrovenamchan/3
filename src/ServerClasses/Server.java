@@ -8,7 +8,6 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.sql.Timestamp;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 
 public class Server {
@@ -17,6 +16,7 @@ public class Server {
 	int portNumber = 85858;
 	ArrayList<Thready> openThreads = new ArrayList<Thready>();
 	ArrayList<Message> messages = new ArrayList<Message>();
+	
 
 	public static void main(String[] args) {
 		System.out.println("Starte Server");
@@ -76,8 +76,9 @@ public class Server {
 						break;
 
 					case "P ":
-
-						int anzahlNachrichten = Integer.parseInt(firstInput);
+						int anzahlNachrichten = Integer.parseInt(firstInput.substring(2));
+						output.println("N "+anzahlNachrichten);
+						ArrayList<Message> newMessages = new ArrayList<Message>();
 						for (; anzahlNachrichten > 0; anzahlNachrichten--) {
 							int zeilenAnzahl = input.read();
 							Message message = new Message(zeilenAnzahl);
@@ -91,8 +92,9 @@ public class Server {
 							}
 							message.setMessages(text);
 							addMessage(message);
+							newMessages.add(message);
 						}
-						sendToAll();
+						sendToAll(newMessages);
 
 					case "T ":
 						String theme = firstInput.substring(2);
@@ -107,10 +109,6 @@ public class Server {
 				}
 
 			}
-		}
-		
-		public void sendToAll(){
-			//TODO
 		}
 		
 		public void sendMessages(Timestamp timestamp) {
@@ -176,6 +174,21 @@ public class Server {
 		}
 	}
 
+	public void sendToAll(ArrayList<Message> messages){
+		//TODO
+		for(Thready thread : openThreads){
+			PrintWriter out = thread.output;
+			for(Message message : messages){
+				out.println(message.getSize());
+				out.println(message.getTimestamp()+" "+message.getTheme());
+				String[] texts = message.getMessages();
+				for(int i = texts.length;i<texts.length;i++){
+					out.println(texts[i]);
+				}
+			}
+		}
+	}
+	
 	public synchronized void kill() {
 		running = false;
 		for (Thready thread : openThreads) {
