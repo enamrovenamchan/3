@@ -92,6 +92,7 @@ public class Server {
 							message.setMessages(text);
 							addMessage(message);
 						}
+						sendToAll();
 
 					case "T ":
 						String theme = firstInput.substring(2);
@@ -107,7 +108,11 @@ public class Server {
 
 			}
 		}
-
+		
+		public void sendToAll(){
+			//TODO
+		}
+		
 		public void sendMessages(Timestamp timestamp) {
 			ArrayList<Message> searchedMessages = new ArrayList<Message>();
 			synchronized (messages) {
