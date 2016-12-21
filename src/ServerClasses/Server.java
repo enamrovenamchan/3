@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.sql.Timestamp;
@@ -13,7 +14,7 @@ import java.util.Date;
 public class Server {
 
 	boolean running = true;
-	int portNumber = 85858;
+	int portNumber = 12345;
 	ArrayList<Thready> openThreads = new ArrayList<Thready>();
 	ArrayList<Message> messages = new ArrayList<Message>();
 	
@@ -30,6 +31,7 @@ public class Server {
 		while (running) {
 			try {
 				ServerSocket serverSocket = new ServerSocket();
+				serverSocket.bind(new InetSocketAddress(portNumber));
 				Socket socket = serverSocket.accept();
 				Thready Thready = new Thready(socket);
 				Thready.start();
@@ -44,13 +46,11 @@ public class Server {
 
 	public class Thready extends Thread {
 
-		private Socket client;
 		private BufferedReader input;
 		private PrintWriter output;
 		private boolean running = true;
 
 		public Thready(Socket client) {
-			this.client = client;
 			try {
 				this.output = new PrintWriter(client.getOutputStream());
 				this.input = new BufferedReader(new InputStreamReader(client.getInputStream()));
@@ -76,14 +76,12 @@ public class Server {
 						break;
 
 					case "P ":
-						int anzahlNachrichten = Integer.parseInt(firstInput.substring(2));
-						output.println("N "+anzahlNachrichten);
 						ArrayList<Message> newMessages = new ArrayList<Message>();
-						for (; anzahlNachrichten > 0; anzahlNachrichten--) {
+						for (int anzahlNachrichten = input.read(); anzahlNachrichten > 0; anzahlNachrichten--) {
 							int zeilenAnzahl = input.read();
 							Message message = new Message(zeilenAnzahl);
-							String theme = input.readLine();
-							message.setTheme(theme.substring(theme.indexOf(" ")));
+							String timeStampAndtheme = input.readLine();
+							message.setTheme(timeStampAndtheme.substring(timeStampAndtheme.indexOf(" ")));
 							Date datum = new Date();
 							message.setTimestamp(new Timestamp(datum.getTime()));
 							String[] text = new String[zeilenAnzahl - 1];
@@ -95,12 +93,30 @@ public class Server {
 							newMessages.add(message);
 						}
 						sendToAll(newMessages);
+						break;
 
 					case "T ":
 						String theme = firstInput.substring(2);
 						sendMessages(theme);
+						break;
 					case "L ":
-					case "X ": kill();
+						ArrayList<Message> sortedMessages = sortByTimestamp(messages);
+						if(firstInput.length()==1){
+							sendMessages(sortedMessages);
+						}
+						int anzahlNachrichten = Integer.parseInt(firstInput.substring(2));
+						if(anzahlNachrichten>=sortedMessages.size()){
+							sendMessages(sortedMessages);
+						}
+						else{
+							ArrayList<Message> messages = new ArrayList<Message>();
+							for(int count=0;count<=anzahlNachrichten;count++){
+								messages.add(sortedMessages.get(count));
+							}
+							sendMessages(messages);
+						}
+						break;
+					case "X ": kill(); break;
 					}
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
@@ -121,11 +137,11 @@ public class Server {
 				}
 				output.println(searchedMessages.size());
 				for (Message message : searchedMessages) {
-					output.print(message.getSize());
-					output.print(message.getTimestamp() + " " + message.getTheme());
+					output.println(message.getSize());
+					output.println(message.getTimestamp() + " " + message.getTheme());
 					String[] lines = message.getMessages();
 					for (int counter = lines.length; counter > 0; counter--) {
-						output.print(lines[counter]);
+						output.println(lines[counter]);
 					}
 				}
 			}
@@ -139,20 +155,12 @@ public class Server {
 						searchedMessages.add(message);
 					}
 				}
-				output.println(searchedMessages.size());
-				sortByTimestamp(searchedMessages);
-				for (Message message : searchedMessages) {
-					output.print(message.getSize());
-					output.print(message.getTimestamp() + " " + message.getTheme());
-					String[] lines = message.getMessages();
-					for (int counter = lines.length; counter > 0; counter--) {
-						output.print(lines[counter]);
-					}
-				}
+				searchedMessages = sortByTimestamp(searchedMessages);
+				sendMessages(searchedMessages);
 			}
 		}
 		
-		public void sortByTimestamp(ArrayList<Message> messages){
+		public ArrayList<Message> sortByTimestamp(ArrayList<Message> messages){
 			Message[] messagesArray = new Message[messages.size()];
 			for(int i = messages.size(); i>0 ; i--){
 				messagesArray[i]=messages.get(i);
@@ -167,17 +175,35 @@ public class Server {
 					}
 				}
 			}
+			ArrayList<Message> sortedMessages = new ArrayList<Message>();
+			for(Message message : messagesArray){
+				sortedMessages.add(message);
+			}
+			return sortedMessages;
 		}
 
 		public void kill() {
 			this.running = false;
 		}
+		
+		public void sendMessages(ArrayList<Message> messages){
+			output.println(messages.size());
+			for (Message message : messages) {
+				output.println(message.getSize());
+				output.println(message.getTimestamp() + " " + message.getTheme());
+				String[] lines = message.getMessages();
+				for (int counter = lines.length; counter > 0; counter--) {
+					output.println(lines[counter]);
+				}
+			}
+		}
 	}
 
-	public void sendToAll(ArrayList<Message> messages){
+	public synchronized void sendToAll(ArrayList<Message> messages){
 		//TODO
 		for(Thready thread : openThreads){
 			PrintWriter out = thread.output;
+			out.println(messages.size());
 			for(Message message : messages){
 				out.println(message.getSize());
 				out.println(message.getTimestamp()+" "+message.getTheme());
@@ -197,7 +223,7 @@ public class Server {
 		}
 	}
 
-	public void addMessage(Message message) {
+	public synchronized void addMessage(Message message) {
 		messages.add(message);
 	}
 
