@@ -11,57 +11,62 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Date;
 
-public class Server {
+public class Server implements Runnable {
 
 	boolean running = true;
-	int portNumber = 12345;
+	static int portNumber = 12345;
 	ArrayList<Thready> openThreads = new ArrayList<Thready>();
 	ArrayList<Message> messages = new ArrayList<Message>();
-	
+	ServerSocket serverSocket = null;
 
 	public static void main(String[] args) {
 		System.out.println("Starte Server");
+		System.out.println("Port ist: " + portNumber);
 
 		Server server = new Server();
-		server.start();
+		new Thread(server).start();
 	}
 
-	public void start() {
+	public void run() { // run-Methode für den Server
 
 		while (running) {
 			try {
-				ServerSocket serverSocket = new ServerSocket();
+				serverSocket = new ServerSocket();
 				serverSocket.bind(new InetSocketAddress(portNumber));
 				Socket socket = serverSocket.accept();
 				Thready Thready = new Thready(socket);
-				addThready(Thready);
+				addThready(Thready); // Threads merken damit wir später an alle senden können
+				new Thread(Thready).start();
 				serverSocket.close();
-				Thready.start();
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
+				System.out.println("Fehler beim erstellen einer neuen Verbindung");
+				System.out.println(e.getMessage());
 				e.printStackTrace();
+				running=false;
 			}
 		}
 	}
 
-	public class Thready extends Thread {
+	public class Thready implements Runnable {
 
 		private BufferedReader input;
 		private PrintWriter output;
 		private boolean running = true;
+		private Socket client;
 
 		public Thready(Socket client) {
 			try {
-				this.output = new PrintWriter(client.getOutputStream(),true);
+				this.output = new PrintWriter(client.getOutputStream(), true);
 				this.input = new BufferedReader(new InputStreamReader(client.getInputStream()));
+				this.client = client;
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
+				System.out.println("Fehler beim holen des Writers und oder Readers");
 				System.err.println(e.getMessage());
 				e.printStackTrace();
 			}
 		}
 
-		public void start() {
+		public void run() {
 			while (running) {
 				try {
 					String firstInput = input.readLine();
@@ -78,23 +83,23 @@ public class Server {
 
 					case "P":
 						ArrayList<Message> newMessages = new ArrayList<Message>();
-						anzahlNachrichten = Integer.parseInt(input.readLine());
-						for (; anzahlNachrichten > 0; anzahlNachrichten--) {
+						anzahlNachrichten=Integer.parseInt(input.readLine());	//einlesen wieviele Nachrichten kommen werden
+						for (; anzahlNachrichten > 0; anzahlNachrichten--) { // jede Nachricht einlesen
 							int zeilenAnzahl = Integer.parseInt(input.readLine());
 							Message message = new Message(zeilenAnzahl);
 							String timeStampAndtheme = input.readLine();
-							message.setTheme(timeStampAndtheme.substring(timeStampAndtheme.indexOf(" ")+1));
+							message.setTheme(timeStampAndtheme.substring(timeStampAndtheme.indexOf(" ") + 1)); //Timestamp ist unwichtig, schneiden wir ab
 							Date datum = new Date();
-							message.setTimestamp(new Timestamp(datum.getTime()));
-							String[] text = new String[zeilenAnzahl - 1];
+							message.setTimestamp(new Timestamp(datum.getTime())); // Timestamp setzten
+							String[] text = new String[zeilenAnzahl - 1];// Für jede Zeile der Nachricht einen String anlegen
 							for (int counter = 0; counter < zeilenAnzahl - 1; counter++) {
 								text[counter] = input.readLine();
 							}
 							message.setMessages(text);
-							addMessage(message);
-							newMessages.add(message);
+							addMessage(message); // Server soll sich Message merken
+							newMessages.add(message); // Temporäre Liste die sich die neuen Nachrichten merkt über welche die anderen Clients noch Informiert werden müssen
 						}
-						sendToAll(newMessages);
+						sendToAll(newMessages); // Alle informieren
 						break;
 
 					case "T":
@@ -103,33 +108,45 @@ public class Server {
 						break;
 					case "L":
 						ArrayList<Message> sortedMessages = sortByTimestamp(messages);
-						if(firstInput.length()==1){
+						if (firstInput.trim().length() == 1) {	//Wenn keine zahl angegeben wurde schicke alle Nachrichten
 							sendMessages(sortedMessages);
-						}
-						anzahlNachrichten = Integer.parseInt(firstInput.substring(2));
-						if(anzahlNachrichten>=sortedMessages.size()){
-							sendMessages(sortedMessages);
-						}
-						else{
-							ArrayList<Message> messages = new ArrayList<Message>();
-							for(int count=0;count<anzahlNachrichten;count++){
-								messages.add(sortedMessages.get(count));
+						} else {
+							anzahlNachrichten = Integer.parseInt(firstInput.substring(2));
+							if (anzahlNachrichten >= sortedMessages.size()) {	// Ist die Zahl größer als die anzahl der NAchrichten, schicke auch alle
+								sendMessages(sortedMessages);
+							} else {
+								ArrayList<Message> messages = new ArrayList<Message>();// Geforderte anzahl an nachrichten schicken
+								for (int count = 0; count < anzahlNachrichten; count++) {
+									messages.add(sortedMessages.get(count));
+								}
+								sendMessages(messages);
 							}
-							sendMessages(messages);
 						}
 						break;
-					case "X": kill(); break;
+					case "X":
+						kill();
+						break;
 					}
 				} catch (IOException e) {
-					// TODO Auto-generated catch block
+					System.out.println("Fehler beim einlesen einer Zeile");
+					System.out.println("Eventuell ist der Socket nicht verfügbar?");
+					System.out.println("Verbindung wird abgebaut");
 					System.err.println(e.getMessage());
 					e.printStackTrace();
+					running = false;
+					try {
+						client.close();
+					} catch (IOException e1) {
+						System.out.println("Socket konnte nicht geschlossen werden");
+						System.err.println(e.getMessage());
+						e1.printStackTrace();
+					}
 				}
 
 			}
 		}
-		
-		public void sendMessages(Timestamp timestamp) {
+
+		public void sendMessages(Timestamp timestamp) {// Sendet alle Nachrichten dessen Zeitstämpel älter ist
 			ArrayList<Message> searchedMessages = new ArrayList<Message>();
 			synchronized (messages) {
 				for (Message message : messages) {
@@ -143,13 +160,13 @@ public class Server {
 					output.println(message.getTimestamp().getTime() + " " + message.getTheme());
 					String[] lines = message.getMessages();
 					for (int counter = lines.length; counter > 0; counter--) {
-						output.println(lines[counter-1]);
+						output.println(lines[counter - 1]);
 					}
 				}
 			}
 		}
-		
-		public void sendMessages(String theme){
+
+		public void sendMessages(String theme) {// Sendet alle Nachrichten-Köpfe (Zeilenanzahl,Timestamp und Thema) die das Thema "theme" haben
 			ArrayList<Message> searchedMessages = new ArrayList<Message>();
 			synchronized (messages) {
 				for (Message message : messages) {
@@ -161,62 +178,69 @@ public class Server {
 				sendMessages(searchedMessages);
 			}
 		}
-		
-		public ArrayList<Message> sortByTimestamp(ArrayList<Message> messages){
+
+		public ArrayList<Message> sortByTimestamp(ArrayList<Message> messages) {// Sortiert die gegebene ArrayList nach Timestamp. Neueste zuerst
 			Message[] messagesArray = new Message[messages.size()];
-			for(int i = messages.size(); i>0 ; i--){
-				messagesArray[i-1]=messages.get(i-1);
+			for (int i = messages.size(); i > 0; i--) {
+				messagesArray[i - 1] = messages.get(i - 1);
 			}
-			for(int i=0;i<messagesArray.length;i++){
+			for (int i = 0; i < messagesArray.length; i++) {
 				Message bubble = messagesArray[i];
-				for(int j = i+1; j<messagesArray.length;j++){
-					if(messagesArray[j].getTimestamp().after(bubble.getTimestamp())){
+				for (int j = i + 1; j < messagesArray.length; j++) {
+					if (messagesArray[j].getTimestamp().after(bubble.getTimestamp())) {
 						Message store = messagesArray[j];
-						messagesArray[j]=messagesArray[i];
-						messagesArray[i]=store;
+						messagesArray[j] = messagesArray[i];
+						messagesArray[i] = store;
 					}
 				}
 			}
 			ArrayList<Message> sortedMessages = new ArrayList<Message>();
-			for(Message message : messagesArray){
+			for (Message message : messagesArray) {
 				sortedMessages.add(message);
 			}
 			return sortedMessages;
 		}
 
-		public void kill() {
+		public synchronized void kill() {//Schließt die verbindung und den dazugehörigen Thread
 			this.running = false;
+			try {
+				this.client.close();
+			} catch (IOException e) {
+				System.out.println("Client-Socket konnte nicht geschlossen werden");
+				System.err.println(e.getMessage());
+				e.printStackTrace();
+			}
+			Thread.currentThread().interrupt();
+			openThreads.remove(this);
 		}
-		
-		public void sendMessages(ArrayList<Message> messages){
+
+		public void sendMessages(ArrayList<Message> messages) {// Sendet die gegebenen Nachrichten an den Client
 			output.println(messages.size());
 			for (Message message : messages) {
 				output.println(message.getSize());
 				output.println(message.getTimestamp().getTime() + " " + message.getTheme());
 				String[] lines = message.getMessages();
 				for (int counter = lines.length; counter > 0; counter--) {
-					output.println(lines[counter-1]);
+					output.println(lines[counter - 1]);
 				}
 			}
 		}
 	}
 
-	public synchronized void sendToAll(ArrayList<Message> messages){
-		//TODO
-		for(Thready thread : openThreads){
+	public synchronized void sendToAll(ArrayList<Message> messages) {// Sendet die gegebenen Nachrichten an alle Clients
+		for (Thready thread : openThreads) {
 			PrintWriter out = thread.output;
-			out.println("N "+messages.size());
-			for(Message message : messages){
-				out.println(message.getTimestamp().getTime()+" "+message.getTheme());
+			out.println("N " + messages.size());
+			for (Message message : messages) {
+				out.println(message.getTimestamp().getTime() + " " + message.getTheme());
 			}
 		}
 	}
-	
+
 	public synchronized void kill() {
-		running = false;
+		this.running = false;
 		for (Thready thread : openThreads) {
 			thread.kill();
-			thread.interrupt();
 		}
 	}
 
