@@ -73,12 +73,20 @@ public class Server implements Runnable {
 
 					String beginningOfString = firstInput.substring(0, 1);
 					int anzahlNachrichten;
+					String vilEineZahl;
 					switch (beginningOfString) {
 
 					case "W":
-						String time = firstInput.substring(2);
-						Timestamp timestamp = new Timestamp(Long.parseLong(time));
-						sendMessages(timestamp);
+						vilEineZahl = firstInput.substring(2);
+						try {
+							Timestamp timestamp = new Timestamp(Long.parseLong(vilEineZahl));
+							sendMessages(timestamp);
+						} catch (NumberFormatException e1) {
+							output.println("Nach dem >>W<< hat der Server einen ''TimeStamp'' erwartet. Du hast aber >>"+vilEineZahl+"<< eingegeben");
+							output.println("Damit kann der jetzt nichts anfangen. Versuchs nochmal!");
+							System.out.println("Fehler beim einlesen der Zahl nach dem >>L<<. War wohl keine Zahl");
+							e1.printStackTrace();
+						}
 						break;
 
 					case "P":
@@ -111,21 +119,33 @@ public class Server implements Runnable {
 						if (firstInput.trim().length() == 1) {	//Wenn keine zahl angegeben wurde schicke alle Nachrichten
 							sendMessages(sortedMessages);
 						} else {
-							anzahlNachrichten = Integer.parseInt(firstInput.substring(2));
-							if (anzahlNachrichten >= sortedMessages.size()) {	// Ist die Zahl größer als die anzahl der NAchrichten, schicke auch alle
-								sendMessages(sortedMessages);
-							} else {
-								ArrayList<Message> messages = new ArrayList<Message>();// Geforderte anzahl an nachrichten schicken
-								for (int count = 0; count < anzahlNachrichten; count++) {
-									messages.add(sortedMessages.get(count));
+							vilEineZahl = firstInput.substring(2);
+							try {
+								anzahlNachrichten = Integer.parseInt(vilEineZahl);
+								if (anzahlNachrichten >= sortedMessages.size()) {	// Ist die Zahl größer als die anzahl der NAchrichten, schicke auch alle
+									sendMessages(sortedMessages);
+								} else {
+									ArrayList<Message> messages = new ArrayList<Message>();// Geforderte anzahl an nachrichten schicken
+									for (int count = 0; count < anzahlNachrichten; count++) {
+										messages.add(sortedMessages.get(count));
+									}
+									sendMessages(messages);
 								}
-								sendMessages(messages);
+							} catch (NumberFormatException e) {
+								output.println("Nach dem >>L<< hat der Server eine Zahl erwartet. Du hast aber >>"+vilEineZahl+"<< eingegeben");
+								output.println("Damit kann der jetzt nichts anfangen. Versuchs nochmal!");
+								System.out.println("Fehler beim einlesen der Zahl nach dem >>L<<. War wohl keine Zahl");
+								e.printStackTrace();
 							}
 						}
 						break;
 					case "X":
 						kill();
 						break;
+					default:
+						output.println("Der gesendete Befehl ist dem Server nicht bekannt");
+						output.println("Entweder war der Befehl falsch oder bei der übertragung ist etwas verloren gegangen");
+						output.println("Versuchen sie es doch einfach noch mal ;)");
 					}
 				} catch (IOException e) {
 					System.out.println("Fehler beim einlesen einer Zeile");
