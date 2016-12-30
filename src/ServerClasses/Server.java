@@ -40,6 +40,7 @@ public class Server implements Runnable {
 				serverSocket.close();
 			} catch (IOException e) {
 				System.out.println("Fehler beim erstellen einer neuen Verbindung");
+				System.out.println("Server wird ausgeschaltet");
 				System.out.println(e.getMessage());
 				e.printStackTrace();
 				running=false;
@@ -84,30 +85,37 @@ public class Server implements Runnable {
 						} catch (NumberFormatException e1) {
 							output.println("Nach dem >>W<< hat der Server einen ''TimeStamp'' erwartet. Du hast aber >>"+vilEineZahl+"<< eingegeben");
 							output.println("Damit kann der jetzt nichts anfangen. Versuchs nochmal!");
-							System.out.println("Fehler beim einlesen der Zahl nach dem >>L<<. War wohl keine Zahl");
+							System.out.println("Fehler beim einlesen der Zahl nach dem >>W<<. War wohl keine Zahl");
 							e1.printStackTrace();
 						}
 						break;
 
 					case "P":
 						ArrayList<Message> newMessages = new ArrayList<Message>();
-						anzahlNachrichten=Integer.parseInt(input.readLine());	//einlesen wieviele Nachrichten kommen werden
-						for (; anzahlNachrichten > 0; anzahlNachrichten--) { // jede Nachricht einlesen
-							int zeilenAnzahl = Integer.parseInt(input.readLine());
-							Message message = new Message(zeilenAnzahl);
-							String timeStampAndtheme = input.readLine();
-							message.setTheme(timeStampAndtheme.substring(timeStampAndtheme.indexOf(" ") + 1)); //Timestamp ist unwichtig, schneiden wir ab
-							Date datum = new Date();
-							message.setTimestamp(new Timestamp(datum.getTime())); // Timestamp setzten
-							String[] text = new String[zeilenAnzahl - 1];// Für jede Zeile der Nachricht einen String anlegen
-							for (int counter = 0; counter < zeilenAnzahl - 1; counter++) {
-								text[counter] = input.readLine();
+						try {
+							anzahlNachrichten=Integer.parseInt(input.readLine());	//einlesen wieviele Nachrichten kommen werden
+							for (; anzahlNachrichten > 0; anzahlNachrichten--) { // jede Nachricht einlesen
+								int zeilenAnzahl = Integer.parseInt(input.readLine());
+								Message message = new Message(zeilenAnzahl);
+								String timeStampAndtheme = input.readLine();
+								message.setTheme(timeStampAndtheme.substring(timeStampAndtheme.indexOf(" ") + 1)); //Timestamp ist unwichtig, schneiden wir ab
+								Date datum = new Date();
+								message.setTimestamp(new Timestamp(datum.getTime())); // Timestamp setzten
+								String[] text = new String[zeilenAnzahl - 1];// Für jede Zeile der Nachricht einen String anlegen
+								for (int counter = 0; counter < zeilenAnzahl - 1; counter++) {
+									text[counter] = input.readLine();
+								}
+								message.setMessages(text);
+								addMessage(message); // Server soll sich Message merken
+								newMessages.add(message); // Temporäre Liste die sich die neuen Nachrichten merkt über welche die anderen Clients noch Informiert werden müssen
 							}
-							message.setMessages(text);
-							addMessage(message); // Server soll sich Message merken
-							newMessages.add(message); // Temporäre Liste die sich die neuen Nachrichten merkt über welche die anderen Clients noch Informiert werden müssen
+							sendToAll(newMessages); // Alle informieren
+						} catch (NumberFormatException e1) {
+							output.println("Der Server hat hier eine Zahl erwartet.");
+							output.println("Versuchs noch mal und oder lese doch noch mal das Protokoll");
+							System.out.println("Nutzer hat keine Zahl eingegeben wo eine erwartet wurde");
+							e1.printStackTrace();
 						}
-						sendToAll(newMessages); // Alle informieren
 						break;
 
 					case "T":
@@ -146,6 +154,7 @@ public class Server implements Runnable {
 						output.println("Der gesendete Befehl ist dem Server nicht bekannt");
 						output.println("Entweder war der Befehl falsch oder bei der übertragung ist etwas verloren gegangen");
 						output.println("Versuchen sie es doch einfach noch mal ;)");
+						break;
 					}
 				} catch (IOException e) {
 					System.out.println("Fehler beim einlesen einer Zeile");
@@ -166,16 +175,16 @@ public class Server implements Runnable {
 			}
 		}
 
-		public void sendMessages(Timestamp timestamp) {// Sendet alle Nachrichten dessen Zeitstämpel älter ist
+		public void sendMessages(Timestamp timestamp) {// Sendet alle Nachrichten dessen Zeitstaempel aelter ist
 			ArrayList<Message> searchedMessages = new ArrayList<Message>();
 			synchronized (messages) {
-				for (Message message : messages) {
+				for (Message message : messages) {  //ersteinmal suchen wir die Nachrichten mit aelterem Zeitstempel
 					if (message.getTimestamp().after(timestamp)) {
 						searchedMessages.add(message);
 					}
 				}
 				output.println(searchedMessages.size());
-				for (Message message : searchedMessages) {
+				for (Message message : searchedMessages) { // Dann schicken wir sie ab
 					output.println(message.getSize());
 					output.println(message.getTimestamp().getTime() + " " + message.getTheme());
 					String[] lines = message.getMessages();
@@ -186,10 +195,10 @@ public class Server implements Runnable {
 			}
 		}
 
-		public void sendMessages(String theme) {// Sendet alle Nachrichten-Köpfe (Zeilenanzahl,Timestamp und Thema) die das Thema "theme" haben
+		public void sendMessages(String theme) {// Sendet alle Nachrichten-Koepfe (Zeilenanzahl,Timestamp und Thema) die das Thema "theme" haben
 			ArrayList<Message> searchedMessages = new ArrayList<Message>();
 			synchronized (messages) {
-				for (Message message : messages) {
+				for (Message message : messages) { //Alle Nachrichten mit dem gewuenschtem Thema suchen
 					if (message.getTheme().equals(theme)) {
 						searchedMessages.add(message);
 					}
@@ -204,7 +213,7 @@ public class Server implements Runnable {
 			for (int i = messages.size(); i > 0; i--) {
 				messagesArray[i - 1] = messages.get(i - 1);
 			}
-			for (int i = 0; i < messagesArray.length; i++) {
+			for (int i = 0; i < messagesArray.length; i++) {//Sortiere mit Bubble-Sort
 				Message bubble = messagesArray[i];
 				for (int j = i + 1; j < messagesArray.length; j++) {
 					if (messagesArray[j].getTimestamp().after(bubble.getTimestamp())) {
