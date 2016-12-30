@@ -27,7 +27,7 @@ public class Server implements Runnable {
 		new Thread(server).start();
 	}
 
-	public void run() { // run-Methode für den Server
+	public void run() { // run-Methode fuer den Server
 
 		while (running) {
 			try {
@@ -35,7 +35,7 @@ public class Server implements Runnable {
 				serverSocket.bind(new InetSocketAddress(portNumber));
 				Socket socket = serverSocket.accept();
 				Thready Thready = new Thready(socket);
-				addThready(Thready); // Threads merken damit wir später an alle senden können
+				addThready(Thready); // Threads merken damit wir spaeter an alle senden koennen
 				new Thread(Thready).start();
 				serverSocket.close();
 			} catch (IOException e) {
@@ -101,13 +101,13 @@ public class Server implements Runnable {
 								message.setTheme(timeStampAndtheme.substring(timeStampAndtheme.indexOf(" ") + 1)); //Timestamp ist unwichtig, schneiden wir ab
 								Date datum = new Date();
 								message.setTimestamp(new Timestamp(datum.getTime())); // Timestamp setzten
-								String[] text = new String[zeilenAnzahl - 1];// Für jede Zeile der Nachricht einen String anlegen
+								String[] text = new String[zeilenAnzahl - 1];// Fuer jede Zeile der Nachricht einen String anlegen
 								for (int counter = 0; counter < zeilenAnzahl - 1; counter++) {
 									text[counter] = input.readLine();
 								}
 								message.setMessages(text);
 								addMessage(message); // Server soll sich Message merken
-								newMessages.add(message); // Temporäre Liste die sich die neuen Nachrichten merkt über welche die anderen Clients noch Informiert werden müssen
+								newMessages.add(message); // Temporaere Liste die sich die neuen Nachrichten merkt ueber welche die anderen Clients noch Informiert werden muessen
 							}
 							sendToAll(newMessages); // Alle informieren
 						} catch (NumberFormatException e1) {
@@ -130,7 +130,7 @@ public class Server implements Runnable {
 							vilEineZahl = firstInput.substring(2);
 							try {
 								anzahlNachrichten = Integer.parseInt(vilEineZahl);
-								if (anzahlNachrichten >= sortedMessages.size()) {	// Ist die Zahl größer als die anzahl der NAchrichten, schicke auch alle
+								if (anzahlNachrichten >= sortedMessages.size()) {	// Ist die Zahl groesser als die anzahl der NAchrichten, schicke auch alle
 									sendMessages(sortedMessages);
 								} else {
 									ArrayList<Message> messages = new ArrayList<Message>();// Geforderte anzahl an nachrichten schicken
@@ -152,13 +152,13 @@ public class Server implements Runnable {
 						break;
 					default:
 						output.println("Der gesendete Befehl ist dem Server nicht bekannt");
-						output.println("Entweder war der Befehl falsch oder bei der übertragung ist etwas verloren gegangen");
+						output.println("Entweder war der Befehl falsch oder bei der uebertragung ist etwas verloren gegangen");
 						output.println("Versuchen sie es doch einfach noch mal ;)");
 						break;
 					}
 				} catch (IOException e) {
 					System.out.println("Fehler beim einlesen einer Zeile");
-					System.out.println("Eventuell ist der Socket nicht verfügbar?");
+					System.out.println("Eventuell ist der Socket nicht verfuegbar?");
 					System.out.println("Verbindung wird abgebaut");
 					System.err.println(e.getMessage());
 					e.printStackTrace();
@@ -230,7 +230,7 @@ public class Server implements Runnable {
 			return sortedMessages;
 		}
 
-		public synchronized void kill() {//Schließt die verbindung und den dazugehörigen Thread
+		public synchronized void kill() {//Schliesst die verbindung und den dazugehoerigen Thread
 			this.running = false;
 			try {
 				this.client.close();
